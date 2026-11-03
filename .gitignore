@@ -15,8 +15,8 @@ ENV/
 .idea/
 *.swp
 
-# Do NOT track reports on GitHub
-*.pdf
+# College Project Reports (Local only - not uploaded to GitHub)
 *.docx
-generate_pdf.py
-generate_report.py
+*.pdf
+*Report*
+college_logo.png
