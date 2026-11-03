@@ -1,4 +1,4 @@
-# Multi-Algorithm Grand Tournament (Project #50)
+# Multi-Algorithm Grand Tournament
 
 A simple, clean machine learning benchmarking project that runs a tournament across **7 popular classification algorithms** on real-world data from the **UCI Machine Learning Repository**.
 
@@ -47,12 +47,13 @@ The tournament compares 7 algorithms on an 80% train / 20% test split:
 
 ---
 
-## 4. File Structure (Zero Unnecessary Files)
+## 4. File Structure
 
 ```
 multialgo_grand_tournament/
 ├── data_loader.py       # Downloads 4,521 UCI records and populates SQLite
-├── main.py              # Runs the 7-algorithm tournament & displays leaderboard
+├── main.py              # Runs the 7-algorithm tournament & interactive prediction
+├── app.py               # Interactive web deployment dashboard (http://127.0.0.1:8080)
 ├── tournament.db        # SQLite database (table: multialgo_tournament_records)
 ├── requirements.txt     # Python package requirements
 └── README.md            # Project documentation
@@ -67,12 +68,18 @@ multialgo_grand_tournament/
    pip install -r requirements.txt
    ```
 
-2. **Load 4,521 records into database** *(optional, `main.py` will also auto-load if missing)*:
-   ```bash
-   python data_loader.py
-   ```
-
-3. **Run the Grand Tournament**:
+2. **Run the Grand Tournament (Leaderboard)**:
    ```bash
    python main.py
    ```
+
+3. **Interactive Prediction in Terminal**:
+   ```bash
+   python main.py --predict
+   ```
+
+4. **Launch Web Deployment Dashboard**:
+   ```bash
+   python app.py
+   ```
+   Open `http://127.0.0.1:8080` in your browser.
