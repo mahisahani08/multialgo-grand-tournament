@@ -8,6 +8,7 @@ import sys
 import time
 import sqlite3
 import warnings
+import argparse
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
@@ -51,35 +52,26 @@ def get_tournament_data():
     return df
 
 
-def run_tournament():
-    """Run the Grand Tournament across 7 competitive algorithms."""
+def train_and_benchmark():
+    """Trains 7 algorithms and returns leaderboard + trained models."""
     df = get_tournament_data()
-    print("=" * 75)
-    print("           MULTI-ALGORITHM GRAND TOURNAMENT BENCHMARK")
-    print(f" Table: {TABLE_NAME} | Total Records: {len(df)}")
-    print(f" Source: UCI Machine Learning Repository (Bank Marketing Dataset)")
-    print("=" * 75)
 
-    # 1. Prepare Features & Target
     feature_cols = ["scaled_metric_alpha", "scaled_metric_beta", "scaled_metric_gamma", "categorical_flag_delta"]
     X = df[feature_cols].values
     y = df["evaluation_target_class"].values
 
-    # 2. Train-Test Split (80% train, 20% test)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42, stratify=y)
 
-    # 3. 7 Competing ML Algorithms
     algorithms = {
-        "Logistic Regression": LogisticRegression(max_iter=500, random_state=42),
-        "Random Forest": RandomForestClassifier(n_estimators=100, max_depth=6, random_state=42),
-        "Support Vector Machine": SVC(probability=True, random_state=42),
-        "K-Nearest Neighbors": KNeighborsClassifier(n_neighbors=7),
         "Gaussian Naive Bayes": GaussianNB(),
         "Decision Tree": DecisionTreeClassifier(max_depth=5, random_state=42),
-        "Gradient Boosting": GradientBoostingClassifier(n_estimators=80, random_state=42)
+        "Gradient Boosting": GradientBoostingClassifier(n_estimators=80, random_state=42),
+        "K-Nearest Neighbors": KNeighborsClassifier(n_neighbors=7),
+        "Random Forest": RandomForestClassifier(n_estimators=100, max_depth=6, random_state=42),
+        "Logistic Regression": LogisticRegression(max_iter=500, random_state=42),
+        "Support Vector Machine": SVC(probability=True, random_state=42)
     }
 
-    # 4. Train and Benchmark Each Model
     results = []
     trained_models = {}
 
@@ -92,14 +84,12 @@ def run_tournament():
         acc = accuracy_score(y_test, preds)
         f1 = f1_score(y_test, preds, zero_division=0)
         
-        # Calculate ROC-AUC score
         if hasattr(model, "predict_proba"):
             probs = model.predict_proba(X_test)[:, 1]
             auc = roc_auc_score(y_test, probs)
         else:
             auc = acc
 
-        # Tournament Score out of 100
         score = (0.40 * f1 + 0.40 * auc + 0.20 * acc) * 100.0
 
         results.append({
@@ -112,14 +102,25 @@ def run_tournament():
         })
         trained_models[name] = model
 
-    # 5. Sort & Rank Leaderboard
     leaderboard = pd.DataFrame(results).sort_values(by="tournament_score", ascending=False).reset_index(drop=True)
     leaderboard["rank"] = leaderboard.index + 1
     
     medals = {1: "[Gold 1st]", 2: "[Silver 2nd]", 3: "[Bronze 3rd]"}
     leaderboard["award"] = leaderboard["rank"].map(lambda r: medals.get(r, f"Finalist #{r}"))
 
-    # 6. Display Leaderboard
+    return df, leaderboard, trained_models
+
+
+def run_tournament():
+    """Run tournament and display leaderboard in terminal."""
+    df, leaderboard, trained_models = train_and_benchmark()
+
+    print("=" * 75)
+    print("           MULTI-ALGORITHM GRAND TOURNAMENT BENCHMARK")
+    print(f" Table: {TABLE_NAME} | Total Records: {len(df)}")
+    print(f" Source: UCI Machine Learning Repository (Bank Marketing Dataset)")
+    print("=" * 75)
+
     display_cols = ["rank", "award", "algorithm", "accuracy", "f1_score", "roc_auc", "time_ms", "tournament_score"]
     headers = ["Rank", "Award", "Algorithm", "Accuracy %", "F1 Score", "ROC-AUC", "Time (ms)", "Score / 100"]
     
@@ -129,18 +130,75 @@ def run_tournament():
     print(f"\nGRAND CHAMPION: {champion['algorithm']} ({champion['award']})")
     print(f"Score: {champion['tournament_score']} | F1: {champion['f1_score']} | ROC-AUC: {champion['roc_auc']}\n")
 
-    # 7. Sample Prediction Demo
+    # Sample Prediction Demo
     print("-" * 75)
-    print("LIVE PREDICTION TEST (Sample Custom Profile):")
-    sample_profile = np.array([[0.5, -0.2, 1.1, 1]])
+    print("DEFAULT SAMPLE PREDICTION:")
+    sample = np.array([[0.5, -0.2, 1.1, 1]])
     best_model = trained_models[champion["algorithm"]]
-    pred = best_model.predict(sample_profile)[0]
-    prob = best_model.predict_proba(sample_profile)[0, 1] if hasattr(best_model, "predict_proba") else 0.5
-    
+    pred = best_model.predict(sample)[0]
+    prob = best_model.predict_proba(sample)[0, pred] if hasattr(best_model, "predict_proba") else 0.85
+    label = "WILL Subscribe (Class 1)" if pred == 1 else "Will NOT Subscribe (Class 0)"
     print(f"Inputs: [alpha=0.5, beta=-0.2, gamma=1.1, delta=1]")
-    print(f"Champion ({champion['algorithm']}) Prediction: Class {pred} (Confidence: {prob*100:.1f}%)")
+    print(f"Verdict: {label} (Confidence: {prob*100:.1f}%)")
     print("-" * 75)
+
+
+def interactive_predict():
+    """Prompts the user to enter custom inputs and predicts the outcome."""
+    _, leaderboard, trained_models = train_and_benchmark()
+    champion_name = leaderboard.iloc[0]["algorithm"]
+    model = trained_models[champion_name]
+
+    print("\n" + "=" * 65)
+    print("         CUSTOM PROFILE PREDICTION CONSOLE")
+    print(f" Model: {champion_name} (Grand Champion)")
+    print("=" * 65)
+    print("(Note: Standardized metrics have an average of 0.0, range usually -2.0 to +2.0)")
+
+    try:
+        val_alpha = input("Enter scaled_metric_alpha (Standardized Age) [default 0.0]: ").strip()
+        alpha = float(val_alpha) if val_alpha else 0.0
+
+        val_beta = input("Enter scaled_metric_beta (Standardized Balance) [default 0.0]: ").strip()
+        beta = float(val_beta) if val_beta else 0.0
+
+        val_gamma = input("Enter scaled_metric_gamma (Standardized Duration) [default 0.0]: ").strip()
+        gamma = float(val_gamma) if val_gamma else 0.0
+
+        val_delta = input("Enter categorical_flag_delta (Housing Loan: 0=No, 1=Yes) [default 0]: ").strip()
+        delta = int(val_delta) if val_delta else 0
+
+        vec = np.array([[alpha, beta, gamma, delta]])
+        pred = model.predict(vec)[0]
+        prob = model.predict_proba(vec)[0, pred] if hasattr(model, "predict_proba") else 0.85
+
+        print("\n" + "-" * 65)
+        print(f"PREDICTION RESULT:")
+        if pred == 1:
+            print(">> Class 1: Customer WILL subscribe to Term Deposit! <<")
+        else:
+            print(">> Class 0: Customer will NOT subscribe. <<")
+        print(f"Confidence: {prob*100:.1f}%")
+        print("-" * 65 + "\n")
+
+    except Exception as e:
+        print(f"[!] Error: {e}")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--predict", "-p", action="store_true", help="Interactive prediction in terminal")
+    parser.add_argument("--web", "-w", action="store_true", help="Launch web deployment dashboard")
+    args = parser.parse_args()
+
+    if args.web:
+        from app import run
+        run(port=8080)
+    elif args.predict:
+        interactive_predict()
+    else:
+        run_tournament()
 
 
 if __name__ == "__main__":
-    run_tournament()
+    main()
