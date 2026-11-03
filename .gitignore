@@ -14,3 +14,9 @@ ENV/
 .vscode/
 .idea/
 *.swp
+
+# Do NOT track reports on GitHub
+*.pdf
+*.docx
+generate_pdf.py
+generate_report.py
